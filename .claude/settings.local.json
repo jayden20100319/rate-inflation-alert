@@ -1,0 +1,22 @@
+{
+  "permissions": {
+    "allow": [
+      "WebSearch",
+      "WebFetch(domain:www.usinflationcalculator.com)",
+      "WebFetch(domain:m.joseilbo.com)",
+      "WebFetch(domain:secretlinker.co.kr)",
+      "Skill(dataviz)",
+      "Skill(dataviz:*)",
+      "PowerShell(node --version)",
+      "PowerShell(python --version)",
+      "PowerShell(Remove-Item \".\\\\validate_palette.js\" -Confirm:$false)",
+      "PowerShell(gh --version)",
+      "WebFetch(domain:wooiljeong.github.io)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:wikidocs.net)",
+      "WebFetch(domain:ecos.bok.or.kr)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(curl -s \"https://api.stlouisfed.org/fred/series/observations?series_id=DFEDTARU&file_type=json&frequency=m&aggregation_method=eop&observation_start=2021-07-01&api_key=demo\")"
+    ]
+  }
+}

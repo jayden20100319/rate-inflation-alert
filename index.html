@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>금리·물가 알리미</title>
+<meta name="description" content="한국·미국 기준금리와 물가 상승률을 발표 당일 알려주고, 5년 추이와 향후 전망을 보여주는 알리미 앱">
+<meta name="theme-color" content="#2a78d6">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="금리알리미">
+<style>
+  :root {
+    color-scheme: light;
+    --surface-1: #fcfcfb;      /* 카드/차트 표면 */
+    --page: #f9f9f7;           /* 페이지 배경 */
+    --text-primary: #0b0b0b;
+    --text-secondary: #52514e;
+    --text-muted: #898781;
+    --grid: #e1e0d9;
+    --axis: #c3c2b7;
+    --border: rgba(11,11,11,0.10);
+    --series-rate: #2a78d6;    /* 기준금리 = 팔레트 슬롯1 blue */
+    --series-cpi: #1baf7a;     /* 물가상승률 = 팔레트 슬롯2 aqua */
+    --accent: #2a78d6;
+    --accent-deep: #1c5cab;
+    --banner-bg: #eaf2fc;
+    --chip-bg: #f0efec;
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --surface-1: #1a1a19;
+    --page: #0d0d0d;
+    --text-primary: #ffffff;
+    --text-secondary: #c3c2b7;
+    --text-muted: #898781;
+    --grid: #2c2c2a;
+    --axis: #383835;
+    --border: rgba(255,255,255,0.10);
+    --series-rate: #3987e5;
+    --series-cpi: #199e70;
+    --accent: #3987e5;
+    --accent-deep: #86b6ef;
+    --banner-bg: #16233a;
+    --chip-bg: #262624;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --surface-1: #1a1a19;
+      --page: #0d0d0d;
+      --text-primary: #ffffff;
+      --text-secondary: #c3c2b7;
+      --text-muted: #898781;
+      --grid: #2c2c2a;
+      --axis: #383835;
+      --border: rgba(255,255,255,0.10);
+      --series-rate: #3987e5;
+      --series-cpi: #199e70;
+      --accent: #3987e5;
+      --accent-deep: #86b6ef;
+      --banner-bg: #16233a;
+      --chip-bg: #262624;
+    }
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    font-family: system-ui, -apple-system, "Segoe UI", "Malgun Gothic", sans-serif;
+    background: var(--page);
+    color: var(--text-primary);
+    line-height: 1.5;
+    padding-bottom: 48px;
+  }
+  .wrap { max-width: 880px; margin: 0 auto; padding: 0 16px; }
+
+  /* ---------- 헤더 ---------- */
+  header {
+    position: sticky; top: 0; z-index: 30;
+    background: var(--page);
+    border-bottom: 1px solid var(--border);
+  }
+  .hd { display: flex; align-items: center; gap: 8px; padding: 12px 0; }
+  .hd h1 { font-size: 17px; font-weight: 700; letter-spacing: -0.2px; flex: 1; min-width: 0; }
+  .hd h1 .sub { display: block; font-size: 11px; font-weight: 400; color: var(--text-muted); }
+  .iconbtn {
+    border: 1px solid var(--border); background: var(--surface-1); color: var(--text-primary);
+    border-radius: 10px; min-width: 36px; height: 36px; padding: 0 10px;
+    font-size: 15px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    flex: none;
+  }
+  .iconbtn:hover { border-color: var(--accent); }
+  .iconbtn[hidden] { display: none; }
+  .iconbtn .lbl { font-size: 12px; }
+
+  /* ---------- 발표일 배너 ---------- */
+  #todayBanner {
+    display: none; margin: 12px 0 0;
+    background: var(--banner-bg); border: 1px solid var(--border);
+    border-left: 4px solid var(--accent);
+    border-radius: 12px; padding: 12px 14px; font-size: 14px;
+  }
+  #todayBanner.show { display: block; }
+  #todayBanner strong { color: var(--accent-deep); }
+
+  /* ---------- 공통 카드 ---------- */
+  section.card {
+    background: var(--surface-1); border: 1px solid var(--border);
+    border-radius: 16px; padding: 16px; margin-top: 16px;
+    overflow: hidden;
+  }
+  section.card > h2 {
+    font-size: 14px; font-weight: 700; color: var(--text-secondary);
+    margin-bottom: 12px; letter-spacing: -0.2px;
+  }
+  .cap { font-size: 11px; color: var(--text-muted); }
+
+  /* ---------- 국가 파트 ---------- */
+  .part-head {
+    display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;
+    border-bottom: 1px solid var(--grid); padding-bottom: 10px; margin-bottom: 12px;
+  }
+  .part-head h2 {
+    font-size: 18px; font-weight: 800; letter-spacing: -0.3px; color: var(--text-primary);
+    display: flex; align-items: center; gap: 8px;
+  }
+  .part-head h2::before {
+    content: ""; width: 5px; height: 18px; border-radius: 3px; background: var(--accent);
+  }
+  .part-head .cap { flex: 1; }
+
+  /* ---------- 스탯 타일 (파트 내부 2개) ---------- */
+  .tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
+  .tile { background: var(--chip-bg); border-radius: 14px; padding: 12px 14px; min-width: 0; }
+  .tile .k { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-secondary); }
+  .tile .k .dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+  .tile .v { font-size: 25px; font-weight: 600; margin: 2px 0 0; letter-spacing: -0.5px; white-space: nowrap; }
+  .tile .v .unit { font-size: 14px; font-weight: 400; color: var(--text-secondary); }
+  .tile .d { font-size: 11.5px; color: var(--text-secondary); }
+  .tile .when { font-size: 10.5px; color: var(--text-muted); margin-top: 2px; }
+
+  /* ---------- 일정 ---------- */
+  .sched { list-style: none; }
+  .sched li {
+    display: flex; align-items: center; gap: 10px;
+    padding: 9px 0; border-top: 1px solid var(--grid); font-size: 13.5px;
+  }
+  .sched li:first-child { border-top: 0; }
+  .dday {
+    flex: none; min-width: 46px; text-align: center; font-weight: 700; font-size: 12px;
+    background: var(--chip-bg); color: var(--text-secondary);
+    border-radius: 8px; padding: 4px 6px; font-variant-numeric: tabular-nums;
+  }
+  .dday.hot { background: var(--accent); color: #fff; }
+  .sched .t { flex: 1; min-width: 0; }
+  .sched .t .n { font-size: 11px; color: var(--text-muted); }
+  .sched .dt { flex: none; font-size: 12px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+  .sched-actions { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+  .btn {
+    border: 1px solid var(--border); background: var(--chip-bg); color: var(--text-primary);
+    border-radius: 10px; padding: 8px 14px; font-size: 13px; cursor: pointer;
+  }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .btn:disabled { opacity: 0.5; cursor: default; }
+  #notifState { font-size: 11.5px; color: var(--text-muted); margin-top: 8px; }
+
+  /* ---------- 필터 행 ---------- */
+  .filters { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 20px; }
+  .seg { display: inline-flex; background: var(--chip-bg); border-radius: 10px; padding: 3px; }
+  .seg button {
+    border: 0; background: transparent; color: var(--text-secondary);
+    padding: 6px 12px; font-size: 13px; border-radius: 8px; cursor: pointer;
+  }
+  .seg button[aria-pressed="true"] { background: var(--surface-1); color: var(--text-primary); font-weight: 600; box-shadow: 0 1px 2px rgba(0,0,0,0.12); }
+  .toggle { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text-secondary); cursor: pointer; }
+  .toggle input { accent-color: var(--accent); width: 16px; height: 16px; }
+
+  /* ---------- 차트 ---------- */
+  .chart-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+  .chart-head h3 { font-size: 13px; font-weight: 700; color: var(--text-secondary); }
+  .legend { display: flex; gap: 14px; font-size: 12px; color: var(--text-secondary); }
+  .legend .key { display: inline-flex; align-items: center; gap: 6px; }
+  .legend .key i { width: 14px; height: 0; border-top: 2px solid; border-radius: 2px; }
+  .legend .key.rate i { border-color: var(--series-rate); }
+  .legend .key.cpi i { border-color: var(--series-cpi); }
+  .legend .key.fc i { border-top-style: dashed; border-color: var(--text-muted); }
+  .chart-box { position: relative; margin-top: 8px; }
+  .chart-box svg { display: block; width: 100%; max-width: 100%; height: auto; touch-action: pan-y; }
+  .tooltip {
+    position: absolute; pointer-events: none; z-index: 5; display: none;
+    background: var(--surface-1); border: 1px solid var(--border);
+    border-radius: 10px; padding: 8px 10px; font-size: 12px;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.18); min-width: 140px;
+  }
+  .tooltip .tt-date { color: var(--text-muted); font-size: 11px; margin-bottom: 4px; }
+  .tooltip .row { display: flex; align-items: center; gap: 6px; margin-top: 2px; }
+  .tooltip .row i { width: 12px; height: 0; border-top: 2px solid; border-radius: 2px; flex: none; }
+  .tooltip .row .nm { color: var(--text-secondary); flex: 1; }
+  .tooltip .row .vl { font-weight: 700; font-variant-numeric: tabular-nums; }
+
+  /* ---------- 파트 내 전망 ---------- */
+  .fc-h { font-size: 13px; font-weight: 700; color: var(--text-secondary); margin: 16px 0 8px; }
+  .fc-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .fc-cell { background: var(--chip-bg); border-radius: 12px; padding: 10px 12px; min-width: 0; }
+  .fc-cell .k { font-size: 11.5px; color: var(--text-secondary); display: flex; align-items: center; gap: 5px; }
+  .fc-cell .k .dot { width: 7px; height: 7px; border-radius: 50%; flex: none; }
+  .fc-cell .path { font-size: 14.5px; font-weight: 600; margin-top: 2px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .fc-note { font-size: 12.5px; color: var(--text-secondary); margin-top: 10px; }
+  .fc-note ul { margin: 4px 0 0 18px; }
+  .fc-note li { margin-top: 4px; }
+
+  /* ---------- 모형 설명 ---------- */
+  .disclaimer { font-size: 11px; color: var(--text-muted); line-height: 1.7; }
+
+  /* ---------- 표 ---------- */
+  details.tblwrap summary { cursor: pointer; font-size: 13px; color: var(--text-secondary); user-select: none; }
+  .tbl-scroll { overflow-x: auto; margin-top: 10px; }
+  table { border-collapse: collapse; width: 100%; font-size: 12.5px; min-width: 480px; }
+  th, td { text-align: right; padding: 6px 8px; border-bottom: 1px solid var(--grid); font-variant-numeric: tabular-nums; }
+  th:first-child, td:first-child { text-align: left; }
+  th { color: var(--text-muted); font-weight: 600; font-size: 11.5px; }
+  td { color: var(--text-primary); }
+  td.na { color: var(--text-muted); }
+
+  /* ---------- 업데이트 폼 ---------- */
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  @media (min-width: 640px) { .form-grid { grid-template-columns: 1.4fr 1fr 1fr auto; align-items: end; } }
+  .field { min-width: 0; }
+  .field label { display: block; font-size: 11.5px; color: var(--text-secondary); margin-bottom: 4px; }
+  .field select, .field input {
+    width: 100%; border: 1px solid var(--border); background: var(--page);
+    color: var(--text-primary); border-radius: 10px; padding: 9px 10px; font-size: 14px;
+  }
+  #userEntries { margin-top: 12px; font-size: 12.5px; color: var(--text-secondary); }
+  #userEntries .ue { display: flex; justify-content: space-between; gap: 8px; padding: 4px 0; border-top: 1px solid var(--grid); }
+  #updateMsg { font-size: 12px; margin-top: 8px; color: var(--accent-deep); }
+
+  footer { margin-top: 28px; font-size: 11px; color: var(--text-muted); line-height: 1.7; }
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap hd">
+    <h1>금리·물가 알리미
+      <span class="sub">한국 · 미국 기준금리와 소비자물가</span>
+    </h1>
+    <button class="iconbtn" id="themeBtn" title="화면 모드 전환" aria-label="화면 모드 전환">◐</button>
+    <button class="iconbtn" id="installBtn" hidden title="앱으로 설치">⤓<span class="lbl">설치</span></button>
+  </div>
+</header>
+
+<main class="wrap">
+  <div id="todayBanner" role="status"></div>
+
+  <!-- 발표 일정 & 알림 -->
+  <section class="card">
+    <h2>다가오는 발표 일정</h2>
+    <ul class="sched" id="schedList"></ul>
+    <div class="sched-actions">
+      <button class="btn primary" id="notifBtn">🔔 발표 당일 알림 받기</button>
+      <button class="btn" id="testNotifBtn" hidden>알림 테스트</button>
+    </div>
+    <p id="notifState"></p>
+  </section>
+
+  <!-- 기간 필터 (아래 두 파트 공통) -->
+  <div class="filters" role="group" aria-label="차트 기간 선택">
+    <div class="seg" id="rangeSeg">
+      <button data-range="12" aria-pressed="false">1년</button>
+      <button data-range="36" aria-pressed="false">3년</button>
+      <button data-range="60" aria-pressed="true">5년</button>
+    </div>
+    <label class="toggle"><input type="checkbox" id="fcToggle" checked> 예측 표시</label>
+  </div>
+
+  <!-- ===== 한국 파트 ===== -->
+  <section class="card" id="krPart">
+    <div class="part-head">
+      <h2>한국</h2>
+      <span class="cap">한국은행 기준금리 · 소비자물가 상승률(전년동월비)</span>
+    </div>
+    <div class="tiles" id="tilesKR"></div>
+    <div class="chart-head">
+      <h3>5년 추이 (%)</h3>
+      <div class="legend">
+        <span class="key rate"><i></i>기준금리</span>
+        <span class="key cpi"><i></i>물가상승률</span>
+        <span class="key fc fcKey"><i></i>예측</span>
+      </div>
+    </div>
+    <div class="chart-box" id="krChart" tabindex="0" role="img"
+         aria-label="한국 기준금리와 물가 상승률 추이 차트. 자세한 수치는 아래 표를 참고하세요."></div>
+    <h3 class="fc-h">향후 12개월 전망</h3>
+    <div class="fc-grid" id="fcGridKR"></div>
+    <div class="fc-note" id="fcNoteKR"></div>
+  </section>
+
+  <!-- ===== 미국 파트 ===== -->
+  <section class="card" id="usPart">
+    <div class="part-head">
+      <h2>미국</h2>
+      <span class="cap">연준 기준금리(목표범위 상단) · CPI 상승률(전년동월비)</span>
+    </div>
+    <div class="tiles" id="tilesUS"></div>
+    <div class="chart-head">
+      <h3>5년 추이 (%)</h3>
+      <div class="legend">
+        <span class="key rate"><i></i>기준금리</span>
+        <span class="key cpi"><i></i>물가상승률</span>
+        <span class="key fc fcKey"><i></i>예측</span>
+      </div>
+    </div>
+    <div class="chart-box" id="usChart" tabindex="0" role="img"
+         aria-label="미국 기준금리와 물가 상승률 추이 차트. 자세한 수치는 아래 표를 참고하세요."></div>
+    <h3 class="fc-h">향후 12개월 전망</h3>
+    <div class="fc-grid" id="fcGridUS"></div>
+    <div class="fc-note" id="fcNoteUS"></div>
+  </section>
+
+  <!-- 전망 모형 설명 -->
+  <section class="card">
+    <p class="disclaimer">
+      전망치는 "물가가 기저효과로 각국 목표(2%)를 향해 서서히 수렴한다"는 단순 통계 모형과
+      규칙 기반 금리 시나리오로 자동 계산한 <strong>참고용</strong> 수치입니다.
+      새 발표값을 입력하면 전망도 자동으로 다시 계산됩니다.
+      실제 결과와 다를 수 있으며, 투자 판단의 근거나 금융 자문이 아닙니다.
+    </p>
+  </section>
+
+  <!-- 데이터 표 -->
+  <section class="card">
+    <details class="tblwrap">
+      <summary>월별 수치 표로 보기</summary>
+      <div class="tbl-scroll">
+        <table id="dataTable" aria-label="월별 금리·물가 수치">
+          <thead>
+            <tr><th>월</th><th>한국 금리</th><th>한국 물가</th><th>미국 금리</th><th>미국 물가</th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <p class="cap" style="margin-top:8px">미국 2025년 10~11월 물가는 연방정부 셧다운으로 미발표.</p>
+    </details>
+  </section>
+
+  <!-- 데이터 업데이트 -->
+  <section class="card">
+    <h2>새 발표값 입력 (수동 업데이트)</h2>
+    <p class="cap" style="margin-bottom:10px">
+      이 앱은 서버 없이 동작하는 PWA라서 새 발표값이 자동으로 내려받아지지는 않아요.
+      발표 당일 알림을 받은 뒤 발표된 수치를 입력하면 카드·차트·전망이 즉시 갱신되고, 이 기기에 저장됩니다.
+    </p>
+    <form id="updateForm" class="form-grid">
+      <div class="field">
+        <label for="uKind">지표</label>
+        <select id="uKind">
+          <option value="rateKR">한국 기준금리 (%)</option>
+          <option value="rateUS">미국 기준금리 상단 (%)</option>
+          <option value="cpiKR">한국 물가상승률 (전년동월비 %)</option>
+          <option value="cpiUS">미국 물가상승률 (전년동월비 %)</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="uMonth">해당 월</label>
+        <input type="month" id="uMonth" min="2026-06" max="2028-12" required>
+      </div>
+      <div class="field">
+        <label for="uValue">값 (%)</label>
+        <input type="number" id="uValue" step="0.01" min="-5" max="30" required placeholder="예: 3.00">
+      </div>
+      <button class="btn primary" type="submit">저장</button>
+    </form>
+    <p id="updateMsg" role="status"></p>
+    <div id="userEntries"></div>
+  </section>
+
+  <footer>
+    데이터 출처: 한국은행 기준금리, 통계청 소비자물가동향, 미국 연방준비제도(FOMC), 미국 노동통계국(BLS CPI) ·
+    내장 데이터 기준일 <span id="dataAsOf"></span><br>
+    금리 발표는 한국은행 금통위(연 8회)와 FOMC(연 8회), 물가는 양국 모두 매월 발표됩니다.
+    이 앱의 모든 수치와 전망은 정보 제공 목적이며 금융·투자 자문이 아닙니다.
+  </footer>
+</main>
+
+<script src="series.js"></script>
+<script src="schedule.js"></script>
+<script src="data.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

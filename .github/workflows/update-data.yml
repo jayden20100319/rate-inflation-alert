@@ -1,0 +1,44 @@
+name: 금리·물가 데이터 자동 갱신
+
+on:
+  schedule:
+    # 모두 UTC 기준. 아래 세 시각이 한국·미국 주요 발표 시간대를 느슨하게 커버합니다.
+    - cron: "0 23 * * *"  # 08:00 KST — 한국 통계청 물가동향, 금통위 결정문 발표 시간대
+    - cron: "0 13 * * *"  # ~08:30-09:30 ET — 미국 BLS CPI 발표 시간대
+    - cron: "30 19 * * *" # ~14:30-15:30 ET — FOMC 성명(14:00 ET) 발표 후 여유시간
+  workflow_dispatch: {}   # Actions 탭에서 수동 실행 가능
+
+permissions:
+  contents: write
+
+concurrency:
+  group: update-data
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: 데이터 수집 (ECOS + FRED)
+        env:
+          ECOS_API_KEY: ${{ secrets.ECOS_API_KEY }}
+          FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
+        run: python scripts/fetch_data.py
+
+      - name: 변경 시에만 커밋 & 푸시
+        run: |
+          if git diff --quiet -- series.js; then
+            echo "변경 없음 — 커밋 생략"
+            exit 0
+          fi
+          git config user.name "rate-alert-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add series.js
+          git commit -m "chore: 금리·물가 데이터 자동 갱신 ($(date -u +%F))"
+          git push
