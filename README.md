@@ -22,7 +22,24 @@ python -m http.server 8765
 
 브라우저에서 `http://localhost:8765` 접속 → 주소창의 설치 아이콘(또는 앱의 "설치" 버튼)으로 홈 화면에 추가.
 
-배포하려면 GitHub Pages / Netlify / Vercel 등 아무 정적 호스팅에 폴더 그대로 올리면 됩니다(HTTPS 필수).
+배포하려면 GitHub Pages / Cloudflare Pages / Netlify / Vercel 등 아무 정적 호스팅에 폴더 그대로 올리면 됩니다(HTTPS 필수).
+
+## Cloudflare Pages로 배포 (GitHub 연동)
+
+GitHub 저장소를 Cloudflare Pages에 연결하면, 이후 봇이 데이터를 커밋할 때마다 자동으로 재배포됩니다.
+
+1. https://dash.cloudflare.com 로그인 (계정이 없으면 무료 가입)
+2. 왼쪽 메뉴 **Workers & Pages** → **Create** → **Pages** 탭 → **Connect to Git**
+3. GitHub 계정 인증 후 저장소 **`rate-inflation-alert`** 선택
+4. 빌드 설정 (정적 사이트라 빌드 없음):
+   - **Framework preset**: `None`
+   - **Build command**: (비워둠)
+   - **Build output directory**: `/`  (루트)
+   - **Production branch**: `master`
+5. **Save and Deploy** → 잠시 후 `https://rate-inflation-alert.pages.dev` 형태의 주소가 생성됩니다.
+
+빌드 단계가 없으므로 GitHub Actions가 `series.js`를 커밋하면 Cloudflare가 그 파일을 그대로 다시 배포합니다.
+`_headers` 파일이 서비스워커·데이터 파일의 과도한 캐시를 막아, 갱신 후 옛 버전이 남지 않게 합니다.
 
 ## 데이터 파일 구조
 
